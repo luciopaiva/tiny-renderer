@@ -1,5 +1,7 @@
 
-/** @typedef {{ x: Number, y: Number }} Point */
+import ObjLoader from "./obj-loader.js";
+
+/** @typedef {{ x: Number, y: Number, [z]: Number }} Point */
 
 /**
  * https://stackoverflow.com/a/52827031/778272
@@ -22,9 +24,9 @@ const valToRGB = isBigEndian() ?
 class App {
 
     constructor () {
-        this.scale = 4;
-        this.width = 200;
-        this.height = 150;
+        this.scale = 1;
+        this.width = 800;
+        this.height = 600;
         this.canvas = document.createElement("canvas");
         this.canvas.setAttribute("width", this.width.toString());
         this.canvas.setAttribute("height", this.height.toString());
@@ -87,7 +89,7 @@ class App {
     }
 }
 
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => {
     const app = new App();
 
     const red = rgbToVal(0xff, 0, 0);
@@ -95,28 +97,29 @@ window.addEventListener("load", () => {
     const blue = rgbToVal(0, 0, 0xff);
     const white = rgbToVal(0xff, 0xff, 0xff);
 
+    const obj = await ObjLoader.load("african_head.obj");
+    let minX = Number.POSITIVE_INFINITY, maxX = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY, maxY = Number.NEGATIVE_INFINITY;
+    for (const vertex of obj.vertices) {
+        if (vertex.x < minX) minX = vertex.x;
+        if (vertex.x > maxX) maxX = vertex.x;
+        if (vertex.y < minY) minY = vertex.y;
+        if (vertex.y > maxY) maxY = vertex.y;
+    }
+    console.info(minX, maxX);
+    console.info(minY, maxY);
+
+    const tx = x => (x - minX) / (maxX - minX) * app.height * .9;
+    const ty = y => app.height - (y - minY) / (maxY - minY) * app.height * .9;
+
     app.begin();
-
-    // tutorial lines
-    app.line({x: 0, y: 0}, {x: 100, y: 100}, red);
-    app.line({x: 20, y: 13}, {x: 40, y: 80}, green);
-    app.line({x: 80, y: 40}, {x: 13, y: 20}, blue);
-
-    // random white lines everywhere
-    // for (let i = 0; i < 100; i++) {
-    //     const a = { x: app.width * Math.random(), y: app.height * Math.random() };
-    //     const b = { x: app.width * Math.random(), y: app.height * Math.random() };
-    //     app.line(a, b, white);
-    // }
-
-    // white square
-    app.line({x: 0, y: 0}, {x: 100, y: 0}, white);
-    app.line({x: 100, y: 0}, {x: 100, y: 100}, white);
-    app.line({x: 0, y: 100}, {x: 100, y: 100}, white);
-    app.line({x: 0, y: 0}, {x: 0, y: 100}, white);
-
+    for (const face of obj.faces) {
+        const points = /* @type {Point[]} */ face.vertexIndexes
+            .map(i => obj.vertices[i])
+            .map(({x, y}) => { return {x: tx(x), y: ty(y)}; });
+        app.line(points[0], points[1], white);
+        app.line(points[1], points[2], white);
+        app.line(points[2], points[0], white);
+    }
     app.end();
-
-    // app.ctx.strokeStyle = "white";
-    // app.ctx.strokeRect(0, 0, 100, 100);
 });
