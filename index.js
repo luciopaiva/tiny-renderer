@@ -56,23 +56,32 @@ class App {
         const dx = Math.abs(b.x - a.x);
         const dy = Math.abs(b.y - a.y);
 
+        a.x |= 0; b.x |= 0;
+        a.y |= 0; b.y |= 0;
+
+        let error = 0;  // accumulates error due to truncation to integer
+
         if (dx >= dy) {
-            a.x |= 0; b.x |= 0;
             [a, b] = a.x <= b.x ? [a, b] : [b, a];
-            const d = b.x - a.x;
-            for (let x = a.x; x < b.x; x++) {
-                const t = (x - a.x) / d;
-                const y = (a.y + (b.y - a.y) * t) | 0;
+            const delta = Math.abs(dy / dx);
+            for (let {x, y} = a; x <= b.x; x++) {
                 this.buffer[y * this.width + x] = color;
+                error += delta;
+                if (error > 0.5) {
+                    y += a.y > b.y ? -1 : 1;
+                    error--;
+                }
             }
         } else {  // line is steep, iterate on y to avoid holes
-            a.y |= 0; b.y |= 0;
             [a, b] = a.y <= b.y ? [a, b] : [b, a];
-            const d = b.y - a.y;
-            for (let y = a.y; y < b.y; y++) {
-                const t = (y - a.y) / d;
-                const x = (a.x + (b.x - a.x) * t) | 0;
+            const delta = Math.abs(dx / dy);
+            for (let {x, y} = a; y <= b.y; y++) {
                 this.buffer[y * this.width + x] = color;
+                error += delta;
+                if (error > 0.5) {
+                    x += a.x > b.x ? -1 : 1;
+                    error--;
+                }
             }
         }
     }
