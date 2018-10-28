@@ -87,6 +87,12 @@ class App {
             }
         }
     }
+
+    triangle(p1, p2, p3, color) {
+        this.line(p1, p2, color);
+        this.line(p2, p3, color);
+        this.line(p3, p1, color);
+    }
 }
 
 window.addEventListener("load", async () => {
@@ -117,9 +123,7 @@ window.addEventListener("load", async () => {
         const points = /* @type {Point[]} */ face.vertexIndexes
             .map(i => obj.vertices[i])
             .map(({x, y}) => { return {x: tx(x), y: ty(y)}; });
-        app.line(points[0], points[1], white);
-        app.line(points[1], points[2], white);
-        app.line(points[2], points[0], white);
+        app.triangle(points[0], points[1], points[2], white);
     }
     app.end();
 });
