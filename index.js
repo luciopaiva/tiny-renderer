@@ -93,6 +93,47 @@ class App {
         this.line(p2, p3, color);
         this.line(p3, p1, color);
     }
+
+    /**
+     * @param {Point} p1
+     * @param {Point} p2
+     * @param {Point} p3
+     * @param {Number} color
+     */
+    fillTriangle(p1, p2, p3, color) {
+        // sort points by y coordinate
+        [p1, p2] = p1.y <= p2.y ? [p1, p2] : [p2, p1];
+        [p1, p3] = p1.y <= p3.y ? [p1, p3] : [p3, p1];
+        [p2, p3] = p2.y <= p3.y ? [p2, p3] : [p3, p2];
+
+        const totalHeight = p3.y - p1.y + 1;
+
+        // paint top half
+        const topHeight = p2.y - p1.y + 1;
+        for (let y = p1.y; y < p2.y; y++) {
+            const a = (y - p1.y) / totalHeight;
+            const b = (y - p1.y) / topHeight;
+            let x1 = p1.x + (p3.x - p1.x) * a | 0;
+            let x2 = p1.x + (p2.x - p1.x) * b | 0;
+            [x1, x2] = x1 <= x2 ? [x1, x2] : [x2, x1];
+            for (let x = x1; x <= x2; x++) {
+                this.buffer[y * this.width + x] = color;
+            }
+        }
+
+        // paint bottom half
+        const bottomHeight = p3.y - p2.y + 1;
+        for (let y = p2.y; y <= p3.y; y++) {
+            const a = (y - p1.y) / totalHeight;
+            const b = (y - p2.y) / bottomHeight;
+            let x1 = p1.x + (p3.x - p1.x) * a | 0;
+            let x2 = p2.x + (p3.x - p2.x) * b | 0;
+            [x1, x2] = x1 <= x2 ? [x1, x2] : [x2, x1];
+            for (let x = x1; x <= x2; x++) {
+                this.buffer[y * this.width + x] = color;
+            }
+        }
+    }
 }
 
 window.addEventListener("load", async () => {
@@ -122,8 +163,14 @@ window.addEventListener("load", async () => {
     for (const face of obj.faces) {
         const points = /* @type {Point[]} */ face.vertexIndexes
             .map(i => obj.vertices[i])
-            .map(({x, y}) => { return {x: tx(x), y: ty(y)}; });
+            .map(({x, y}) => { return {x: tx(x), y: ty(y)}; })  // scale
+            .map(({x, y}) => { return {x: x|0, y: y|0}; });  // truncate to next int
         app.triangle(points[0], points[1], points[2], white);
     }
+    app.end();
+
+    app.begin();
+    app.fillTriangle({x:100, y:100}, {x:200, y:200}, {x:50, y:300}, red);
+    app.fillTriangle({x:200, y:100}, {x:200, y:100}, {x:200, y:100}, red);
     app.end();
 });
