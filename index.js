@@ -1,5 +1,6 @@
 
 import ObjLoader from "./obj-loader.js";
+import {dot, cross, normalize} from "./vector.js";
 
 /** @typedef {{ x: Number, y: Number, [z]: Number }} Point */
 
@@ -159,13 +160,45 @@ window.addEventListener("load", async () => {
     const tx = x => (x - minX) / (maxX - minX) * app.height * .9;
     const ty = y => app.height - (y - minY) / (maxY - minY) * app.height * .9;
 
+    const v1 = new Float32Array(3);
+    const v2 = new Float32Array(3);
+    const normal = new Float32Array(3);
+    const light = new Float32Array(3);
+    light[0] = 0;  // x increases to right
+    light[1] = 0;  // y increases to bottom (canvas inverts this coordinate)
+    light[2] = 1;  // z increases to out of the screen
+
+    let min = Number.POSITIVE_INFINITY, max = Number.NEGATIVE_INFINITY;
     app.begin();
     for (const face of obj.faces) {
+
+        const vertices = /* @type {Point[]} */ face.vertexIndexes.map(i => obj.vertices[i]);
+        v1[0] = vertices[1].x - vertices[0].x;
+        v1[1] = vertices[1].y - vertices[0].y;
+        v1[2] = vertices[1].z - vertices[0].z;
+        v2[0] = vertices[2].x - vertices[0].x;
+        v2[1] = vertices[2].y - vertices[0].y;
+        v2[2] = vertices[2].z - vertices[0].z;
+        cross(v1, v2, normal);
+        normalize(normal);
+        const intensity = dot(normal, light);
+
+        if (intensity < 0) {
+            continue;
+        }
+
+        if (intensity < min) min = intensity;
+        if (intensity > max) max = intensity;
+
         const points = /* @type {Point[]} */ face.vertexIndexes
             .map(i => obj.vertices[i])
             .map(({x, y}) => { return {x: tx(x), y: ty(y)}; })  // scale
             .map(({x, y}) => { return {x: x|0, y: y|0}; });  // truncate to next int
-        app.triangle(points[0], points[1], points[2], white);
+
+        const level = (0xff * intensity) | 0;
+        const shade = rgbToVal(level, level, level);
+        app.fillTriangle(points[0], points[1], points[2], shade);
     }
+    console.info(min, max);
     app.end();
 });
