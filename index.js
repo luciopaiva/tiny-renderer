@@ -168,9 +168,4 @@ window.addEventListener("load", async () => {
         app.triangle(points[0], points[1], points[2], white);
     }
     app.end();
-
-    app.begin();
-    app.fillTriangle({x:100, y:100}, {x:200, y:200}, {x:50, y:300}, red);
-    app.fillTriangle({x:200, y:100}, {x:200, y:100}, {x:200, y:100}, red);
-    app.end();
 });
