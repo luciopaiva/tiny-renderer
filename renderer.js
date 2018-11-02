@@ -19,15 +19,24 @@ export default class Renderer {
         this.ctx.fillStyle = "black";
         this.ctx.fillRect(0, 0, this.width, this.height);
 
+        this.auxV1 = new Float32Array(3);
+        this.auxV2 = new Float32Array(3);
+        this.auxNormal = new Float32Array(3);
+
+        this.light = new Float32Array(3);
+        this.light[0] = 0;  // x increases to right
+        this.light[1] = 0;  // y increases to bottom (canvas inverts this coordinate)
+        this.light[2] = 1;  // z increases to out of the screen
+
         document.body.appendChild(this.canvas);
     }
 
-    begin() {
+    beginBuffer() {
         this.imageData = this.ctx.getImageData(0, 0, this.width, this.height);
         this.buffer = new Uint32Array(this.imageData.data.buffer);  // needs the underlying buffer for the conversion
     }
 
-    end() {
+    endBuffer() {
         this.ctx.putImageData(this.imageData, 0, 0);
     }
 
@@ -118,6 +127,24 @@ export default class Renderer {
     }
 
     /**
+     * Calculate light intensity over face (provided as an array of three points).
+     *
+     * @param {[Point,Point,Point]} vertices
+     * @returns {Number}
+     */
+    calculateLightIntensity(vertices) {
+        this.auxV1[0] = vertices[1].x - vertices[0].x;
+        this.auxV1[1] = vertices[1].y - vertices[0].y;
+        this.auxV1[2] = vertices[1].z - vertices[0].z;
+        this.auxV2[0] = vertices[2].x - vertices[0].x;
+        this.auxV2[1] = vertices[2].y - vertices[0].y;
+        this.auxV2[2] = vertices[2].z - vertices[0].z;
+        cross(this.auxV1, this.auxV2, this.auxNormal);
+        normalize(this.auxNormal);
+        return dot(this.auxNormal, this.light);
+    }
+
+    /**
      * @param {ObjMesh} obj
      */
     render(obj) {
@@ -127,29 +154,16 @@ export default class Renderer {
         const tx = x => (x - min.x) / (max.x - min.x) * this.height * .9;
         const ty = y => this.height - (y - min.y) / (max.y - min.y) * this.height * .9;
 
-        const v1 = new Float32Array(3);
-        const v2 = new Float32Array(3);
-        const normal = new Float32Array(3);
-        const light = new Float32Array(3);
-        light[0] = 0;  // x increases to right
-        light[1] = 0;  // y increases to bottom (canvas inverts this coordinate)
-        light[2] = 1;  // z increases to out of the screen
+        let renderedFaces = 0;
+        let culledFaces = 0;
 
-        this.begin();
+        this.beginBuffer();
         for (const face of obj.faces) {
 
-            const vertices = /* @type {Point[]} */ face.vertexIndexes.map(i => obj.vertices[i]);
-            v1[0] = vertices[1].x - vertices[0].x;
-            v1[1] = vertices[1].y - vertices[0].y;
-            v1[2] = vertices[1].z - vertices[0].z;
-            v2[0] = vertices[2].x - vertices[0].x;
-            v2[1] = vertices[2].y - vertices[0].y;
-            v2[2] = vertices[2].z - vertices[0].z;
-            cross(v1, v2, normal);
-            normalize(normal);
-            const intensity = dot(normal, light);
+            const intensity = this.calculateLightIntensity(face.vertexIndexes.map(i => obj.vertices[i]));
 
             if (intensity < 0) {
+                culledFaces++;
                 continue;
             }
 
@@ -161,7 +175,12 @@ export default class Renderer {
             const level = 0xff * intensity;
             const shade = rgb.toNumber(level, level, level);
             this.fillTriangle(points[0], points[1], points[2], shade);
+
+            renderedFaces++;
         }
-        this.end();
+        this.endBuffer();
+
+        console.info("Culled faces:", culledFaces);
+        console.info("Rendered faces:", renderedFaces);
     }
 }
