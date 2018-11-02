@@ -29,6 +29,14 @@ function length(v) {
 
 /**
  * @param {Float32Array} v
+ * @returns {Number}
+ */
+function lengthSq(v) {
+    return v[0]**2 + v[1]**2 + v[2]**2;
+}
+
+/**
+ * @param {Float32Array} v
  */
 function normalize(v) {
     const len = length(v);
