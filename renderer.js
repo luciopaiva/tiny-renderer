@@ -7,8 +7,8 @@ export default class Renderer {
 
     constructor () {
         this.scale = 1;
-        this.width = 800;
-        this.height = 600;
+        this.width = 1024;
+        this.height = 768;
         this.canvas = document.createElement("canvas");
         this.canvas.setAttribute("width", this.width.toString());
         this.canvas.setAttribute("height", this.height.toString());
