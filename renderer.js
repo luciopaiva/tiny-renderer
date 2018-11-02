@@ -21,7 +21,9 @@ export default class Renderer {
 
         this.auxV1 = new Float32Array(3);
         this.auxV2 = new Float32Array(3);
-        this.auxNormal = new Float32Array(3);
+        this.auxFaceNormal = new Float32Array(3);
+        this.auxResult = new Float32Array(3);
+        this.barycentricResult = new Float32Array(3);
 
         this.light = new Float32Array(3);
         this.light[0] = 0;  // x increases to right
@@ -79,19 +81,25 @@ export default class Renderer {
         }
     }
 
-    triangle(p1, p2, p3, color) {
+    strokeTriangle(p1, p2, p3, color) {
         this.line(p1, p2, color);
         this.line(p2, p3, color);
         this.line(p3, p1, color);
     }
 
     /**
+     * Fills triangle given by p1,p2,p3.
+     *
+     * This method divides the triangle in two halves, filling each horizontal line once at a time, starting from the
+     * top line. Points are sorted so that side p1-p3 will be the longest. The first half will fill horizontal lines
+     * connecting sides p1-p3 and p1-p2 and then the second half will fill points between p1-p3 and p2-p3.
+     *
      * @param {Point} p1
      * @param {Point} p2
      * @param {Point} p3
      * @param {Number} color
      */
-    fillTriangle(p1, p2, p3, color) {
+    fillTriangleTwoHalvesMethod(p1, p2, p3, color) {
         // sort points by y coordinate
         [p1, p2] = p1.y <= p2.y ? [p1, p2] : [p2, p1];
         [p1, p3] = p1.y <= p3.y ? [p1, p3] : [p3, p1];
@@ -127,6 +135,58 @@ export default class Renderer {
     }
 
     /**
+     * @param {Point} A
+     * @param {Point} B
+     * @param {Point} C
+     * @param {Point} P
+     */
+    barycentricCoordinates(A, B, C, P) {
+        this.auxV1[0] = C.x - A.x;
+        this.auxV1[1] = B.x - A.x;
+        this.auxV1[2] = A.x - P.x;
+        this.auxV2[0] = C.y - A.y;
+        this.auxV2[1] = B.y - A.y;
+        this.auxV2[2] = A.y - P.y;
+        cross(this.auxV1, this.auxV2, this.auxResult);
+
+        if (this.auxResult[2] > 0) {
+            this.barycentricResult[0] = 1 - (this.auxResult[0] + this.auxResult[1]) / this.auxResult[2];
+            this.barycentricResult[1] = this.auxResult[1] / this.auxResult[2];
+            this.barycentricResult[2] = this.auxResult[0] / this.auxResult[2];
+        } else {
+            // triangle is degenerate; return negative coordinate so point can be discarded properly
+            this.barycentricResult[0] = -1;
+        }
+
+        return this.barycentricResult;
+    }
+
+    /**
+     * This method checks all pixels inside the minimum bounding box for given triangle p1,p2,p3. For each pixel,
+     * it checks its barycentric coordinates to find out if it lies inside the triangle. If it does, paint it; if it
+     * doesn't, skip it.
+     *
+     * @param {Point} p1
+     * @param {Point} p2
+     * @param {Point} p3
+     * @param {Number} color
+     */
+    fillTriangle(p1, p2, p3, color) {
+        const [min, max] = computeBoundingBox([p1, p2, p3]);
+        const p = {x : 0, y : 0, z : 0};
+        for (p.x = min.x; p.x <= max.x; p.x++) {
+            for (p.y = min.y; p.y <= max.y; p.y++) {
+                const bc = this.barycentricCoordinates(p1, p2, p3, p);
+                if (bc[0] < 0 || bc[1] < 0 || bc[2] < 0) {
+                    continue;  // point outside of the triangle
+                }
+
+                this.buffer[p.y * this.width + p.x] = color;
+            }
+        }
+    }
+
+    /**
      * Calculate light intensity over face (provided as an array of three points).
      *
      * @param {[Point,Point,Point]} vertices
@@ -139,9 +199,9 @@ export default class Renderer {
         this.auxV2[0] = vertices[2].x - vertices[0].x;
         this.auxV2[1] = vertices[2].y - vertices[0].y;
         this.auxV2[2] = vertices[2].z - vertices[0].z;
-        cross(this.auxV1, this.auxV2, this.auxNormal);
-        normalize(this.auxNormal);
-        return dot(this.auxNormal, this.light);
+        cross(this.auxV1, this.auxV2, this.auxFaceNormal);
+        normalize(this.auxFaceNormal);
+        return dot(this.auxFaceNormal, this.light);
     }
 
     /**
