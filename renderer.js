@@ -16,8 +16,6 @@ export default class Renderer {
         this.canvas.style.height = `${this.height * this.scale}px`;
 
         this.ctx = this.canvas.getContext("2d");
-        this.ctx.fillStyle = "black";
-        this.ctx.fillRect(0, 0, this.width, this.height);
 
         this.auxV1 = new Float32Array(3);
         this.auxV2 = new Float32Array(3);
@@ -25,12 +23,24 @@ export default class Renderer {
         this.auxResult = new Float32Array(3);
         this.barycentricResult = new Float32Array(3);
 
+        this.zBuffer = new Float32Array(this.width * this.height);
+
         this.light = new Float32Array(3);
+
+        this.reset();
+
+        document.body.appendChild(this.canvas);
+    }
+
+    reset() {
+        this.ctx.fillStyle = "black";
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
         this.light[0] = 0;  // x increases to right
         this.light[1] = 0;  // y increases to bottom (canvas inverts this coordinate)
         this.light[2] = 1;  // z increases to out of the screen
 
-        document.body.appendChild(this.canvas);
+        this.zBuffer.fill(Number.NEGATIVE_INFINITY);
     }
 
     beginBuffer() {
@@ -208,6 +218,8 @@ export default class Renderer {
      * @param {ObjMesh} obj
      */
     render(obj) {
+        this.reset();
+
         const [min, max] = computeBoundingBox(obj.vertices);
         console.info("Bounding box:", min, max);
 
