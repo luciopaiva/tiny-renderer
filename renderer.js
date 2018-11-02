@@ -191,7 +191,15 @@ export default class Renderer {
                     continue;  // point outside of the triangle
                 }
 
-                this.buffer[p.y * this.width + p.x] = color;
+                // calculate global z coordinate based on barycentric coordinates
+                p.z = p1.z * bc[0] + p2.z * bc[1] + p3.z * bc[2];
+                const index = p.y * this.width + p.x;
+
+                // only paint pixel if point is above any other pixel previously painted
+                if (this.zBuffer[index] < p.z) {
+                    this.zBuffer[index] = p.z;
+                    this.buffer[index] = color;
+                }
             }
         }
     }
@@ -241,8 +249,8 @@ export default class Renderer {
 
             const points = /* @type {Point[]} */ face.vertexIndexes
                 .map(i => obj.vertices[i])
-                .map(({x, y}) => { return {x: tx(x), y: ty(y)}; })  // scale
-                .map(({x, y}) => { return {x: x|0, y: y|0}; });  // truncate to next int
+                .map(({x, y, z}) => { return {x: tx(x), y: ty(y), z}; })  // scale
+                .map(({x, y, z}) => { return {x: x|0, y: y|0, z }; });  // truncate to next int
 
             const level = 0xff * intensity;
             const shade = rgb.toNumber(level, level, level);
