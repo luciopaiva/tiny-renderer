@@ -27,6 +27,8 @@ export default class Renderer {
 
         this.light = new Float32Array(3);
 
+        this.modelCenter = {x: 0, y: 0, z: 0};
+
         this.reset();
 
         document.body.appendChild(this.canvas);
@@ -223,19 +225,34 @@ export default class Renderer {
     }
 
     /**
+     * @param {Point} point
+     * @returns {Point}
+     */
+    translateToScreenCenter(point) {
+        const scale = this.height * .4;
+        const result = {x: 0, y: 0, z: point.z};
+        result.x = (this.width / 2) + (point.x - this.modelCenter.x) * scale | 0;
+        result.y = (this.height / 2) - (point.y - this.modelCenter.y) * scale | 0;
+        return result;
+    }
+
+    /**
      * @param {ObjMesh} obj
      */
     render(obj) {
         this.reset();
 
-        const [min, max] = computeBoundingBox(obj.vertices);
-        console.info("Bounding box:", min, max);
+        const [modelMin, modelMax] = computeBoundingBox(obj.vertices);
+        console.info("Model bounding box:", modelMin, modelMax);
 
-        const tx = x => (x - min.x) / (max.x - min.x) * this.height * .9;
-        const ty = y => this.height - (y - min.y) / (max.y - min.y) * this.height * .9;
+        this.modelCenter.x = modelMin.x + (modelMax.x - modelMin.x) / 2;
+        this.modelCenter.y = modelMin.y + (modelMax.y - modelMin.y) / 2;
 
         let renderedFaces = 0;
         let culledFaces = 0;
+
+        const transformedPoints = obj.vertices.map(this.translateToScreenCenter.bind(this));
+        console.info("Rasterized bounding box:", ...computeBoundingBox(transformedPoints));
 
         this.beginBuffer();
         for (const face of obj.faces) {
@@ -247,14 +264,11 @@ export default class Renderer {
                 continue;
             }
 
-            const points = /* @type {Point[]} */ face.vertexIndexes
-                .map(i => obj.vertices[i])
-                .map(({x, y, z}) => { return {x: tx(x), y: ty(y), z}; })  // scale
-                .map(({x, y, z}) => { return {x: x|0, y: y|0, z }; });  // truncate to next int
+            const trianglePoints = face.vertexIndexes.map(i => transformedPoints[i]);
 
             const level = 0xff * intensity;
             const shade = rgb.toNumber(level, level, level);
-            this.fillTriangle(points[0], points[1], points[2], shade);
+            this.fillTriangle(trianglePoints[0], trianglePoints[1], trianglePoints[2], shade);
 
             renderedFaces++;
         }
